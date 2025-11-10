@@ -1,32 +1,37 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { auth } from "@/integrations/firebase/client";
+import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { Button } from "@/components/ui/button";
 import { Compass, Map, Plus, LogOut } from "lucide-react";
 
 const Index = () => {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [loadingUser, setLoadingUser] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null);
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+      setLoadingUser(false);
+      if (!firebaseUser) {
+        navigate("/auth");
+      }
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+    return () => unsubscribe();
+  }, [navigate]);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    await signOut(auth);
     navigate("/auth");
   };
 
+  if (loadingUser) {
+    return null;
+  }
+
   if (!user) {
-    navigate("/auth");
     return null;
   }
 

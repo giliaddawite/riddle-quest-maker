@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/integrations/firebase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Play } from "lucide-react";
+import { collection, getDocs, orderBy, query } from "firebase/firestore";
 
 interface Scene {
   id: string;
@@ -24,13 +25,13 @@ const SceneBrowser = () => {
 
   const loadScenes = async () => {
     try {
-      const { data, error } = await supabase
-        .from('scenes')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setScenes(data as any || []);
+      const scenesQuery = query(collection(db, "scenes"), orderBy("created_at", "desc"));
+      const snapshot = await getDocs(scenesQuery);
+      const scenesData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Scene[];
+      setScenes(scenesData || []);
     } catch (error) {
       console.error('Error loading scenes:', error);
     } finally {

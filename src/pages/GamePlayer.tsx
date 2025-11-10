@@ -1,11 +1,12 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/integrations/firebase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { Trophy, Heart, Clock, Home } from "lucide-react";
+import { doc, getDoc } from "firebase/firestore";
 
 interface HiddenItem {
   id: string;
@@ -84,14 +85,15 @@ const GamePlayer = () => {
 
   const loadScene = async () => {
     try {
-      const { data, error } = await supabase
-        .from('scenes')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (error) throw error;
-      setScene(data as any);
+      if (!id) {
+        throw new Error("Scene id is missing");
+      }
+      const sceneRef = doc(db, "scenes", id);
+      const sceneSnap = await getDoc(sceneRef);
+      if (!sceneSnap.exists()) {
+        throw new Error("Scene not found");
+      }
+      setScene(sceneSnap.data() as Scene);
     } catch (error) {
       console.error('Error loading scene:', error);
       navigate('/scenes');

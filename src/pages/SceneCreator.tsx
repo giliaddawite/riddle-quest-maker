@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { auth, db, storage } from "@/integrations/firebase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Save, Upload, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 interface HiddenItem {
   id: string;
@@ -84,32 +86,23 @@ const SceneCreator = () => {
     setSaving(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = auth.currentUser;
       if (!user) throw new Error("Not authenticated");
 
       const fileExt = backgroundImage.name.split('.').pop();
-      const fileName = `${user.id}/${crypto.randomUUID()}.${fileExt}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('scene-images')
-        .upload(fileName, backgroundImage);
+      const fileName = `${user.uid}/${crypto.randomUUID()}.${fileExt}`;
+      const storagePath = `scene-images/${fileName}`;
+      const storageRef = ref(storage, storagePath);
+      await uploadBytes(storageRef, backgroundImage);
+      const publicUrl = await getDownloadURL(storageRef);
 
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('scene-images')
-        .getPublicUrl(fileName);
-
-      const { error: insertError } = await supabase
-        .from('scenes')
-        .insert([{
-          title,
-          creator_id: user.id,
-          background_url: publicUrl,
-          items: items as any,
-        }]);
-
-      if (insertError) throw insertError;
+      await addDoc(collection(db, "scenes"), {
+        title,
+        creator_id: user.uid,
+        background_url: publicUrl,
+        items: items,
+        created_at: serverTimestamp(),
+      });
 
       toast({ title: "Scene saved successfully!" });
       navigate("/scenes");
