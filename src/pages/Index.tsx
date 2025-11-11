@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { auth } from "@/integrations/firebase/client";
+import { auth, firebaseEnabled } from "@/integrations/firebase/client";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { Button } from "@/components/ui/button";
 import { Compass, Map, Plus, LogOut } from "lucide-react";
@@ -11,6 +11,10 @@ const Index = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (!firebaseEnabled || !auth) {
+      setLoadingUser(false);
+      return;
+    }
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
       setLoadingUser(false);
@@ -20,12 +24,33 @@ const Index = () => {
     });
 
     return () => unsubscribe();
-  }, [navigate]);
+  }, [navigate, firebaseEnabled, auth]);
 
   const handleSignOut = async () => {
+    if (!firebaseEnabled || !auth) return;
     await signOut(auth);
     navigate("/auth");
   };
+
+  if (!firebaseEnabled || !auth) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-gradient-to-br from-background via-amber-glow/5 to-ocean-blue/10">
+        <h1 className="text-3xl font-bold">Treasure Seeker (Demo Mode)</h1>
+        <p className="text-muted-foreground text-center max-w-md">
+          Firebase is disabled in this environment. You can still explore the builders and demo gameplay.
+        </p>
+        <div className="flex flex-wrap gap-3 justify-center">
+          <Button onClick={() => navigate("/create")}>Create Scene</Button>
+          <Button onClick={() => navigate("/scenes")} variant="outline">
+            Browse Scenes
+          </Button>
+          <Button onClick={() => navigate("/play/demo")} variant="secondary">
+            Play Demo
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (loadingUser) {
     return null;

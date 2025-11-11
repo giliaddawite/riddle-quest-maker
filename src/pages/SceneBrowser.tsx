@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { db } from "@/integrations/firebase/client";
+import { db, firebaseEnabled } from "@/integrations/firebase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Play } from "lucide-react";
 import { collection, getDocs, orderBy, query } from "firebase/firestore";
+import { DEMO_SCENES } from "@/lib/demoScenes";
 
 interface Scene {
   id: string;
@@ -20,10 +21,16 @@ const SceneBrowser = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (!firebaseEnabled || !db) {
+      setScenes(DEMO_SCENES);
+      setLoading(false);
+      return;
+    }
     loadScenes();
-  }, []);
+  }, [firebaseEnabled, db]);
 
   const loadScenes = async () => {
+    if (!db) return;
     try {
       const scenesQuery = query(collection(db, "scenes"), orderBy("created_at", "desc"));
       const snapshot = await getDocs(scenesQuery);

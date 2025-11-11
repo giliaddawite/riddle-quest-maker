@@ -1,12 +1,13 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { db } from "@/integrations/firebase/client";
+import { db, firebaseEnabled } from "@/integrations/firebase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { Trophy, Heart, Clock, Home } from "lucide-react";
 import { doc, getDoc } from "firebase/firestore";
+import { getDemoSceneById } from "@/lib/demoScenes";
 
 interface HiddenItem {
   id: string;
@@ -39,7 +40,7 @@ const GamePlayer = () => {
 
   useEffect(() => {
     loadScene();
-  }, [id]);
+  }, [id, firebaseEnabled, db]);
 
   useEffect(() => {
     if (gameOver || !scene) return;
@@ -84,6 +85,31 @@ const GamePlayer = () => {
   }, [scene, foundItems]);
 
   const loadScene = async () => {
+    // Check if this is a demo scene (when Firebase is disabled or explicit demo ID)
+    if (!firebaseEnabled || !db) {
+      if (id) {
+        const demoScene = getDemoSceneById(id);
+        if (demoScene) {
+          setScene({
+            title: demoScene.title,
+            background_url: demoScene.background_url,
+            items: demoScene.items,
+          });
+          return;
+        }
+      }
+      // Fallback to first demo scene if no ID or scene not found
+      const firstDemo = getDemoSceneById("scene-1");
+      if (firstDemo) {
+        setScene({
+          title: firstDemo.title,
+          background_url: firstDemo.background_url,
+          items: firstDemo.items,
+        });
+      }
+      return;
+    }
+
     try {
       if (!id) {
         throw new Error("Scene id is missing");
@@ -95,8 +121,9 @@ const GamePlayer = () => {
       }
       setScene(sceneSnap.data() as Scene);
     } catch (error) {
-      console.error('Error loading scene:', error);
-      navigate('/scenes');
+      console.error("Error loading scene:", error);
+      toast({ title: "Unable to load scene", description: "Returning to scene browser." });
+      navigate("/scenes");
     }
   };
 

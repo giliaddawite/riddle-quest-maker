@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { auth, db, storage } from "@/integrations/firebase/client";
+import { auth, db, storage, firebaseEnabled } from "@/integrations/firebase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,7 +40,6 @@ const SceneCreator = () => {
       setBackgroundUrl(URL.createObjectURL(file));
     }
   };
-
   const handleImageClick = (e: React.MouseEvent<HTMLImageElement>) => {
     if (!isPlacing || !imageRef.current) return;
 
@@ -84,6 +83,11 @@ const SceneCreator = () => {
     }
 
     setSaving(true);
+
+    if (!firebaseEnabled || !auth || !db || !storage) {
+      toast({ title: "Firebase disabled", description: "Scene saving is unavailable right now.", variant: "destructive" });
+      return;
+    }
 
     try {
       const user = auth.currentUser;
