@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { db, firebaseEnabled } from "@/integrations/firebase/client";
+import { auth, db, firebaseEnabled } from "@/integrations/firebase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Play } from "lucide-react";
-import { collection, getDocs, orderBy, query } from "firebase/firestore";
+import { Play, Pencil, Trash2 } from "lucide-react";
+import { collection, deleteDoc, doc, getDocs, orderBy, query } from "firebase/firestore";
 import { DEMO_SCENES } from "@/lib/demoScenes";
+import { useToast } from "@/hooks/use-toast";
 
 interface Scene {
   id: string;
@@ -13,12 +14,14 @@ interface Scene {
   background_url: string;
   items: any[];
   created_at: string;
+  creator_id?: string;
 }
 
 const SceneBrowser = () => {
   const [scenes, setScenes] = useState<Scene[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!firebaseEnabled || !db) {
@@ -43,6 +46,27 @@ const SceneBrowser = () => {
       console.error('Error loading scenes:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDelete = async (sceneId: string, sceneTitle: string) => {
+    if (!firebaseEnabled || !db) return;
+
+    const confirmed = window.confirm(
+      `Delete "${sceneTitle}"?\n\nThis action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    try {
+      await deleteDoc(doc(db, "scenes", sceneId));
+      toast({ title: "Scene deleted successfully!" });
+      await loadScenes();
+    } catch (error: any) {
+      toast({
+        title: "Error deleting scene",
+        description: error.message,
+        variant: "destructive",
+      });
     }
   };
 
@@ -93,6 +117,26 @@ const SceneBrowser = () => {
                     <Play className="w-4 h-4 mr-2" />
                     Start Hunt
                   </Button>
+                  {firebaseEnabled && auth?.currentUser?.uid === scene.creator_id && (
+                    <div className="flex gap-2 mt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(`/edit/${scene.id}`)}
+                      >
+                        <Pencil className="w-4 h-4 mr-1" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDelete(scene.id, scene.title)}
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        Delete
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}

@@ -8,6 +8,7 @@ import Auth from "./pages/Auth";
 import SceneCreator from "./pages/SceneCreator";
 import SceneBrowser from "./pages/SceneBrowser";
 import GamePlayer from "./pages/GamePlayer";
+import SceneEditor from "./pages/SceneEditor";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/create" element={<SceneCreator />} />
+          <Route path="/edit/:id" element={<SceneEditor />} />
           <Route path="/scenes" element={<SceneBrowser />} />
           <Route path="/play/:id" element={<GamePlayer />} />
           <Route path="*" element={<NotFound />} />

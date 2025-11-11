@@ -21,6 +21,8 @@ interface HiddenItem {
   height: number;
 }
 
+const DEFAULT_ITEM_SIZE = 4;
+
 const SceneCreator = () => {
   const [title, setTitle] = useState("");
   const [backgroundImage, setBackgroundImage] = useState<File | null>(null);
@@ -63,8 +65,8 @@ const SceneCreator = () => {
       riddle: currentItem.riddle!,
       x: currentItem.x!,
       y: currentItem.y!,
-      width: currentItem.width || 5,
-      height: currentItem.height || 5,
+      width: currentItem.width || DEFAULT_ITEM_SIZE,
+      height: currentItem.height || DEFAULT_ITEM_SIZE,
     };
 
     setItems([...items, newItem]);
@@ -82,12 +84,16 @@ const SceneCreator = () => {
       return;
     }
 
-    setSaving(true);
-
     if (!firebaseEnabled || !auth || !db || !storage) {
-      toast({ title: "Firebase disabled", description: "Scene saving is unavailable right now.", variant: "destructive" });
+      toast({
+        title: "Firebase disabled",
+        description: "Scene saving is unavailable right now.",
+        variant: "destructive",
+      });
       return;
     }
+
+    setSaving(true);
 
     try {
       const user = auth.currentUser;
@@ -185,8 +191,8 @@ const SceneCreator = () => {
                     style={{
                       left: `${currentItem.x}%`,
                       top: `${currentItem.y}%`,
-                      width: `${currentItem.width || 5}%`,
-                      height: `${currentItem.height || 5}%`,
+                      width: `${currentItem.width || DEFAULT_ITEM_SIZE}%`,
+                      height: `${currentItem.height || DEFAULT_ITEM_SIZE}%`,
                     }}
                   />
                 )}

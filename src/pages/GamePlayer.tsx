@@ -25,6 +25,9 @@ interface Scene {
   items: HiddenItem[];
 }
 
+const TIME_PER_ITEM_SECONDS = 30;
+const MIN_TOTAL_TIME_SECONDS = TIME_PER_ITEM_SECONDS * 3; // 90s safety net for very small scenes
+
 const GamePlayer = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -32,7 +35,8 @@ const GamePlayer = () => {
   const [scene, setScene] = useState<Scene | null>(null);
   const [foundItems, setFoundItems] = useState<Set<string>>(new Set());
   const [energy, setEnergy] = useState(20);
-  const [timeLeft, setTimeLeft] = useState(60);
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [totalTime, setTotalTime] = useState(0);
   const [gameOver, setGameOver] = useState(false);
   const [won, setWon] = useState(false);
   const [currentRiddle, setCurrentRiddle] = useState("");
@@ -43,7 +47,7 @@ const GamePlayer = () => {
   }, [id, firebaseEnabled, db]);
 
   useEffect(() => {
-    if (gameOver || !scene) return;
+    if (gameOver || !scene || totalTime === 0) return;
 
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
@@ -57,7 +61,7 @@ const GamePlayer = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [gameOver, scene]);
+  }, [gameOver, scene, totalTime]);
 
   useEffect(() => {
     if (scene && foundItems.size === scene.items.length && scene.items.length > 0) {
@@ -84,13 +88,24 @@ const GamePlayer = () => {
     }
   }, [scene, foundItems]);
 
+  const applyScene = (sceneData: Scene) => {
+    setScene(sceneData);
+    const itemsCount = sceneData.items?.length ?? 0;
+    const calculatedTotal = Math.max(itemsCount * TIME_PER_ITEM_SECONDS, MIN_TOTAL_TIME_SECONDS);
+    setTotalTime(calculatedTotal);
+    setTimeLeft(calculatedTotal);
+    setFoundItems(new Set());
+    setGameOver(false);
+    setWon(false);
+  };
+
   const loadScene = async () => {
     // Check if this is a demo scene (when Firebase is disabled or explicit demo ID)
     if (!firebaseEnabled || !db) {
       if (id) {
         const demoScene = getDemoSceneById(id);
         if (demoScene) {
-          setScene({
+          applyScene({
             title: demoScene.title,
             background_url: demoScene.background_url,
             items: demoScene.items,
@@ -101,7 +116,7 @@ const GamePlayer = () => {
       // Fallback to first demo scene if no ID or scene not found
       const firstDemo = getDemoSceneById("scene-1");
       if (firstDemo) {
-        setScene({
+        applyScene({
           title: firstDemo.title,
           background_url: firstDemo.background_url,
           items: firstDemo.items,
@@ -119,7 +134,7 @@ const GamePlayer = () => {
       if (!sceneSnap.exists()) {
         throw new Error("Scene not found");
       }
-      setScene(sceneSnap.data() as Scene);
+      applyScene(sceneSnap.data() as Scene);
     } catch (error) {
       console.error("Error loading scene:", error);
       toast({ title: "Unable to load scene", description: "Returning to scene browser." });
@@ -160,7 +175,7 @@ const GamePlayer = () => {
 
   const progress = (foundItems.size / scene.items.length) * 100;
   const energyPercent = (energy / 20) * 100;
-  const timePercent = (timeLeft / 60) * 100;
+  const timePercent = totalTime > 0 ? (timeLeft / totalTime) * 100 : 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-ocean-blue/10 p-4">
