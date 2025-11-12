@@ -26,6 +26,7 @@ const App = () => (
           <Route path="/edit/:id" element={<SceneEditor />} />
           <Route path="/scenes" element={<SceneBrowser />} />
           <Route path="/play/:id" element={<GamePlayer />} />
+          {/* <Route path="/Browser" element={<HomepageNoLogin />} /> */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

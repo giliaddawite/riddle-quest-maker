@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { Trophy, Heart, Clock, Home } from "lucide-react";
+import { Trophy, Heart, Clock, Home, Lightbulb } from "lucide-react";
 import { doc, getDoc } from "firebase/firestore";
 import { getDemoSceneById } from "@/lib/demoScenes";
 
@@ -27,6 +27,7 @@ interface Scene {
 
 const TIME_PER_ITEM_SECONDS = 30;
 const MIN_TOTAL_TIME_SECONDS = TIME_PER_ITEM_SECONDS * 3; // 90s safety net for very small scenes
+const HINT_COST = 5; // Energy cost to use a hint
 
 const GamePlayer = () => {
   const { id } = useParams();
@@ -40,6 +41,7 @@ const GamePlayer = () => {
   const [gameOver, setGameOver] = useState(false);
   const [won, setWon] = useState(false);
   const [currentRiddle, setCurrentRiddle] = useState("");
+  const [hintedItemId, setHintedItemId] = useState<string | null>(null);
   const imageRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
@@ -88,6 +90,13 @@ const GamePlayer = () => {
     }
   }, [scene, foundItems]);
 
+  useEffect(() => {
+    // Clear hint if the hinted item is found
+    if (hintedItemId && foundItems.has(hintedItemId)) {
+      setHintedItemId(null);
+    }
+  }, [foundItems, hintedItemId]);
+
   const applyScene = (sceneData: Scene) => {
     setScene(sceneData);
     const itemsCount = sceneData.items?.length ?? 0;
@@ -97,6 +106,7 @@ const GamePlayer = () => {
     setFoundItems(new Set());
     setGameOver(false);
     setWon(false);
+    setHintedItemId(null);
   };
 
   const loadScene = async () => {
@@ -169,6 +179,27 @@ const GamePlayer = () => {
     }
   };
 
+  const useHint = () => {
+    if (gameOver || !scene || energy < HINT_COST) {
+      if (energy < HINT_COST) {
+        toast({ title: "Not enough energy!", description: `Hints cost ${HINT_COST} energy.`, variant: "destructive" });
+      }
+      return;
+    }
+
+    const unfoundItems = scene.items.filter(item => !foundItems.has(item.id));
+    if (unfoundItems.length === 0) {
+      toast({ title: "All items found!", description: "No hints needed!" });
+      return;
+    }
+
+    // Pick a random unfound item to hint
+    const randomItem = unfoundItems[Math.floor(Math.random() * unfoundItems.length)];
+    setHintedItemId(randomItem.id);
+    setEnergy(prev => Math.max(0, prev - HINT_COST));
+    toast({ title: "Hint activated!", description: "Look for the glowing circle!" });
+  };
+
   if (!scene) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
@@ -219,10 +250,23 @@ const GamePlayer = () => {
           </Card>
         </div>
 
-        <Card className="p-4 bg-gradient-to-r from-amber-glow/10 to-treasure-gold/10 border-2 border-primary/30">
-          <p className="text-sm font-medium text-muted-foreground mb-1">Current Riddle:</p>
-          <p className="text-lg italic text-foreground">{currentRiddle || "Find all the treasures!"}</p>
-        </Card>
+        <div className="flex gap-4">
+          <Card className="flex-1 p-4 bg-gradient-to-r from-amber-glow/10 to-treasure-gold/10 border-2 border-primary/30">
+            <p className="text-sm font-medium text-muted-foreground mb-1">Current Riddle:</p>
+            <p className="text-lg italic text-foreground">{currentRiddle || "Find all the treasures!"}</p>
+          </Card>
+          {!gameOver && (
+            <Button
+              onClick={useHint}
+              disabled={energy < HINT_COST || foundItems.size === scene.items.length}
+              variant="outline"
+              className="bg-gradient-to-r from-amber-glow/20 to-treasure-gold/20 border-2 border-primary/30"
+            >
+              <Lightbulb className="w-4 h-4 mr-2" />
+              Hint ({HINT_COST} energy)
+            </Button>
+          )}
+        </div>
 
         <div className="relative border-4 border-primary/30 rounded-lg overflow-hidden shadow-[var(--shadow-treasure)]">
           <img
