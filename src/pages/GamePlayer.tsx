@@ -276,20 +276,43 @@ const GamePlayer = () => {
             onClick={handleClick}
             className={`w-full ${gameOver ? 'cursor-default' : 'cursor-crosshair'}`}
           />
-          {foundItems.size > 0 && scene.items.map((item) => {
-            if (!foundItems.has(item.id)) return null;
-            return (
-              <div
-                key={item.id}
-                className="absolute border-2 border-treasure-gold bg-treasure-gold/30 rounded animate-pulse"
-                style={{
-                  left: `${item.x}%`,
-                  top: `${item.y}%`,
-                  width: `${item.width}%`,
-                  height: `${item.height}%`,
-                }}
-              />
-            );
+          {scene.items.map((item) => {
+            // Show found items
+            if (foundItems.has(item.id)) {
+              return (
+                <div
+                  key={item.id}
+                  className="absolute border-2 border-treasure-gold bg-treasure-gold/30 rounded animate-pulse"
+                  style={{
+                    left: `${item.x}%`,
+                    top: `${item.y}%`,
+                    width: `${item.width}%`,
+                    height: `${item.height}%`,
+                  }}
+                />
+              );
+            }
+            // Show hint circle
+            if (hintedItemId === item.id) {
+              const centerX = item.x + item.width / 2;
+              const centerY = item.y + item.height / 2;
+              const radius = Math.max(item.width, item.height) * 2; // Circle is 4x (400%) as large as the item
+              return (
+                <div
+                  key={`hint-${item.id}`}
+                  className="absolute pointer-events-none z-10"
+                  style={{
+                    left: `${centerX - radius}%`,
+                    top: `${centerY - radius}%`,
+                    width: `${radius * 2}%`,
+                    height: `${radius * 2}%`,
+                  }}
+                >
+                  <div className="w-full h-full rounded-full border-4 border-amber-400 bg-amber-400/20 animate-pulse shadow-[0_0_20px_rgba(251,191,36,0.8)]" />
+                </div>
+              );
+            }
+            return null;
           })}
         </div>
 

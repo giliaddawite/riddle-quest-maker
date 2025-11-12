@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth, firebaseEnabled } from "@/integrations/firebase/client";
-import { onAuthStateChanged, signOut, type User } from "firebase/auth";
+import { onAuthStateChanged, type User } from "firebase/auth";
 import { Button } from "@/components/ui/button";
-import { Compass, Map, Plus, LogOut } from "lucide-react";
+import { Map, Plus } from "lucide-react";
 
 const Index = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -26,11 +26,6 @@ const Index = () => {
     return () => unsubscribe();
   }, [navigate, firebaseEnabled, auth]);
 
-  const handleSignOut = async () => {
-    if (!firebaseEnabled || !auth) return;
-    await signOut(auth);
-    navigate("/auth");
-  };
 
   if (!firebaseEnabled || !auth) {
     return (
@@ -62,23 +57,6 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-amber-glow/5 to-ocean-blue/10">
-      <nav className="border-b border-border/50 bg-card/50 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-treasure-gold to-amber-glow flex items-center justify-center">
-              <Compass className="w-6 h-6 text-primary-foreground" />
-            </div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-treasure-gold to-amber-glow bg-clip-text text-transparent">
-              Treasure Seeker
-            </h1>
-          </div>
-          <Button onClick={handleSignOut} variant="outline" size="sm">
-            <LogOut className="w-4 h-4 mr-2" />
-            Sign Out
-          </Button>
-        </div>
-      </nav>
-
       <main className="max-w-7xl mx-auto px-6 py-16">
         <div className="text-center mb-16 space-y-4">
           <h2 className="text-6xl font-bold bg-gradient-to-r from-treasure-gold via-amber-glow to-ocean-blue bg-clip-text text-transparent">

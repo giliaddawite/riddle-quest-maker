@@ -3,12 +3,14 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import NavBar from "./components/NavBar";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import SceneCreator from "./pages/SceneCreator";
 import SceneBrowser from "./pages/SceneBrowser";
 import GamePlayer from "./pages/GamePlayer";
 import SceneEditor from "./pages/SceneEditor";
+import Leaderboard from "./pages/Leaderboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -19,6 +21,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <NavBar />
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
@@ -26,6 +29,7 @@ const App = () => (
           <Route path="/edit/:id" element={<SceneEditor />} />
           <Route path="/scenes" element={<SceneBrowser />} />
           <Route path="/play/:id" element={<GamePlayer />} />
+          <Route path="/leaderboard" element={<Leaderboard />} />
           {/* <Route path="/Browser" element={<HomepageNoLogin />} /> */}
           <Route path="*" element={<NotFound />} />
         </Routes>
