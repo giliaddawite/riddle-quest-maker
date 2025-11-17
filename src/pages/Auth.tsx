@@ -211,13 +211,6 @@ const Auth = () => {
           </p>
         </CardContent>
       </Card>
-      
-      <div className="mt-6 space-y-3 text-center">
-        <p className="text-sm text-muted-foreground">Or browse scenes without logging in</p>
-        <Button onClick={() => navigate("/scenes")} variant="outline">
-          Browse Scenes
-        </Button>
-      </div>
     </div>
   );
 };
