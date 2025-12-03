@@ -4,6 +4,7 @@ import { auth, firebaseEnabled } from "@/integrations/firebase/client";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { Button } from "@/components/ui/button";
 import { Compass, LogOut, Home, Map, Plus, Trophy } from "lucide-react";
+import { ThemeToggle } from "./ThemeToggle";
 
 const NavBar = () => {
   const navigate = useNavigate();
@@ -35,8 +36,8 @@ const NavBar = () => {
 
   const isActive = (path: string) => location.pathname === path;
 
-  // Don't show nav bar on auth page
-  if (location.pathname === "/auth") {
+  // Don't show nav bar on auth page or landing page
+  if (location.pathname === "/auth" || location.pathname === "/landing") {
     return null;
   }
 
@@ -99,6 +100,7 @@ const NavBar = () => {
 
           {/* Auth Section */}
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             {!loading && (
               <>
                 {firebaseEnabled && auth ? (
