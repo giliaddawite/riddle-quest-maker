@@ -24,8 +24,28 @@ const Leaderboard = () => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  const calculateScore = (entry: LeaderboardEntry) => {
+    // Score calculation: base points + time bonus + energy bonus
+    const baseScore = entry.itemsFound * 100;
+    const timeBonus = entry.timeLeft * 5;
+    const energyBonus = entry.energyLeft * 10;
+    return baseScore + timeBonus + energyBonus;
+  };
+
   useEffect(() => {
     loadLeaderboard();
+  }, []);
+
+  // Reload leaderboard when component becomes visible (user navigates to this page)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log("Page became visible, reloading leaderboard...");
+        loadLeaderboard();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, []);
 
   const loadLeaderboard = async () => {
@@ -74,30 +94,62 @@ const Leaderboard = () => {
     }
 
     try {
-      const leaderboardQuery = query(
-        collection(db, "leaderboard"),
-        orderBy("score", "desc"),
-        limit(50)
-      );
-      const snapshot = await getDocs(leaderboardQuery);
-      const leaderboardData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as LeaderboardEntry[];
+      console.log("Loading leaderboard from Firestore...");
+      let snapshot;
+      
+      try {
+        // Try to query with orderBy first (requires index)
+        const leaderboardQuery = query(
+          collection(db, "leaderboard"),
+          orderBy("score", "desc"),
+          limit(50)
+        );
+        snapshot = await getDocs(leaderboardQuery);
+      } catch (indexError: any) {
+        // If index is missing, fall back to getting all docs and sorting in memory
+        if (indexError.code === "failed-precondition") {
+          console.warn("Firestore index missing. Fetching all entries and sorting in memory...");
+          console.warn("To fix: Create a composite index for 'leaderboard' collection with 'score' field (descending)");
+          const allDocs = await getDocs(collection(db, "leaderboard"));
+          snapshot = allDocs;
+        } else {
+          throw indexError;
+        }
+      }
+      
+      console.log(`Found ${snapshot.docs.length} leaderboard entries`);
+      let leaderboardData = snapshot.docs.map(doc => {
+        const data = doc.data();
+        console.log("Leaderboard entry:", { id: doc.id, ...data });
+        return {
+          id: doc.id,
+          ...data,
+        };
+      }) as LeaderboardEntry[];
+      
+      // Sort by score descending if we didn't use orderBy
+      leaderboardData = leaderboardData.sort((a, b) => {
+        const scoreA = a.score || calculateScore(a);
+        const scoreB = b.score || calculateScore(b);
+        return scoreB - scoreA;
+      });
+      
+      // Limit to top 50
+      leaderboardData = leaderboardData.slice(0, 50);
+      
       setEntries(leaderboardData || []);
-    } catch (error) {
+      console.log("Leaderboard loaded successfully:", leaderboardData.length, "entries");
+    } catch (error: any) {
       console.error("Error loading leaderboard:", error);
+      console.error("Error details:", {
+        code: error.code,
+        message: error.message,
+        stack: error.stack,
+      });
+      setEntries([]);
     } finally {
       setLoading(false);
     }
-  };
-
-  const calculateScore = (entry: LeaderboardEntry) => {
-    // Score calculation: base points + time bonus + energy bonus
-    const baseScore = entry.itemsFound * 100;
-    const timeBonus = entry.timeLeft * 5;
-    const energyBonus = entry.energyLeft * 10;
-    return baseScore + timeBonus + energyBonus;
   };
 
   const formatDate = (date: any) => {
