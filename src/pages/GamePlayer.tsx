@@ -9,6 +9,7 @@ import { Trophy, Heart, Clock, Home, Lightbulb } from "lucide-react";
 import { doc, getDoc, collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { getDemoSceneById } from "@/lib/demoScenes";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 interface HiddenItem {
   id: string;
@@ -334,7 +335,11 @@ const GamePlayer = () => {
   };
 
   if (!scene) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background to-ocean-blue/10">
+        <LoadingSpinner message="Loading scene..." size="lg" />
+      </div>
+    );
   }
 
   const progress = (foundItems.size / scene.items.length) * 100;

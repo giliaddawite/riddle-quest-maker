@@ -6,12 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Compass } from "lucide-react";
+import { Compass, ArrowLeft } from "lucide-react";
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   updateProfile,
 } from "firebase/auth";
 
@@ -28,14 +30,33 @@ const Auth = () => {
     if (!firebaseEnabled || !auth) {
       return;
     }
+    
+    // Check for redirect result (for Google auth fallback)
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result) {
+          // User signed in via redirect
+          console.log("Google sign-in successful via redirect:", result.user.email);
+          toast({ title: "Welcome! Sign in successful." });
+          // Navigation will happen via onAuthStateChanged
+        }
+      })
+      .catch((error) => {
+        // Only log if it's not a "no redirect" error (normal case when no redirect happened)
+        if (error.code !== "auth/no-auth-event") {
+          console.error("Redirect result error:", error);
+        }
+      });
+    
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
-        navigate("/");
+        console.log("User authenticated:", user.email);
+        navigate("/home");
       }
     });
 
     return () => unsubscribe();
-  }, [navigate, firebaseEnabled, auth]);
+  }, [navigate, firebaseEnabled, auth, toast]);
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,29 +110,58 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      await signInWithPopup(auth, googleProvider);
-      // Success - user will be redirected by onAuthStateChanged
+      // Try popup first (better UX)
+      const result = await signInWithPopup(auth, googleProvider);
+      console.log("Google sign-in successful:", result.user.email);
+      toast({ title: "Welcome! Sign in successful." });
+      setLoading(false);
+      // Navigation will happen via onAuthStateChanged
     } catch (error: any) {
-      // Handle specific error codes
+      console.error("Google sign-in error:", error);
       const errorCode = error?.code;
+      const errorMessage = error?.message || "";
       
       // Silently ignore user cancellation errors
       if (
         errorCode === "auth/cancelled-popup-request" ||
         errorCode === "auth/popup-closed-by-user"
       ) {
-        // User closed the popup - don't show an error
+        console.log("User cancelled popup");
+        setLoading(false);
         return;
       }
       
-      // Handle popup blocked error
-      if (errorCode === "auth/popup-blocked") {
+      // Check if popup showed a 404 error (auth handler not found)
+      // This happens when OAuth redirect URIs aren't configured correctly
+      if (
+        errorCode === "auth/popup-blocked" ||
+        errorCode === "auth/network-request-failed" ||
+        errorCode === "auth/internal-error" ||
+        errorCode === "auth/unauthorized-domain" ||
+        errorMessage.includes("404") ||
+        errorMessage.includes("Failed to fetch") ||
+        errorMessage.includes("auth/handler") ||
+        errorMessage.includes("Page not found")
+      ) {
+        console.log("Popup failed (likely 404 or config issue), switching to redirect");
         toast({
-          title: "Popup Blocked",
-          description: "Please allow popups for this site and try again.",
-          variant: "destructive",
+          title: "Switching to redirect",
+          description: "Popup authentication unavailable. Redirecting to Google sign-in...",
         });
-        return;
+        try {
+          await signInWithRedirect(auth, googleProvider);
+          // Redirect will happen, don't set loading to false
+          return;
+        } catch (redirectError: any) {
+          console.error("Redirect error:", redirectError);
+          toast({
+            title: "Authentication Configuration Error",
+            description: "Please ensure OAuth redirect URIs are configured in Google Cloud Console. See FIREBASE_SETUP.md for details.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
       }
       
       // Handle account exists with different credential error
@@ -121,6 +171,7 @@ const Auth = () => {
           description: "An account already exists with this email. Please sign in with your original method.",
           variant: "destructive",
         });
+        setLoading(false);
         return;
       }
       
@@ -130,7 +181,6 @@ const Auth = () => {
         description: error.message || "Failed to sign in with Google. Please try again.",
         variant: "destructive",
       });
-    } finally {
       setLoading(false);
     }
   };
@@ -148,7 +198,7 @@ const Auth = () => {
           <CardContent className="space-y-4 text-center text-muted-foreground">
             <p>You can still explore other areas of the app such as browsing scenes or playing the demo.</p>
             <div className="flex justify-center">
-              <Button onClick={() => navigate("/")} variant="outline">
+              <Button onClick={() => navigate("/landing")} variant="outline">
                 Go Home
               </Button>
             </div>
@@ -160,7 +210,18 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-amber-glow/5 to-ocean-blue/10 p-4">
-      <Card className="w-full max-w-md border-2 border-primary/20 shadow-[var(--shadow-treasure)]">
+      <Card className="w-full max-w-md border-2 border-primary/20 shadow-[var(--shadow-treasure)] relative">
+        {/* Back Button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate("/landing")}
+          className="absolute top-4 left-4"
+          aria-label="Go back to landing page"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        
         <CardHeader className="text-center space-y-2">
           <div className="mx-auto w-16 h-16 rounded-full bg-gradient-to-br from-treasure-gold to-amber-glow flex items-center justify-center mb-2">
             <Compass className="w-8 h-8 text-primary-foreground animate-pulse" />

@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Trophy, Medal, Award, Clock } from "lucide-react";
 import { collection, getDocs, orderBy, query, limit } from "firebase/firestore";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 interface LeaderboardEntry {
   id: string;
@@ -187,7 +188,7 @@ const Leaderboard = () => {
         </div>
 
         {loading ? (
-          <div className="text-center text-muted-foreground">Loading leaderboard...</div>
+          <LoadingSpinner message="Loading leaderboard..." />
         ) : entries.length === 0 ? (
           <Card className="p-12 text-center">
             <Trophy className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />

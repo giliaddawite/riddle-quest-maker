@@ -10,6 +10,7 @@ import { ArrowLeft, Plus, Save, Upload, X, Pencil } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, getDoc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 interface HiddenItem {
   id: string;
@@ -201,8 +202,8 @@ const SceneEditor = () => {
 
   if (loadingScene) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted-foreground">Loading scene...</p>
+      <div className="min-h-screen bg-gradient-to-br from-background to-amber-glow/5">
+        <LoadingSpinner message="Loading scene editor..." size="lg" />
       </div>
     );
   }
