@@ -1,13 +1,15 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { db, firebaseEnabled } from "@/integrations/firebase/client";
+import { db, firebaseEnabled, auth } from "@/integrations/firebase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { Trophy, Heart, Clock, Home, Lightbulb } from "lucide-react";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { onAuthStateChanged, type User } from "firebase/auth";
 import { getDemoSceneById } from "@/lib/demoScenes";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 interface HiddenItem {
   id: string;
@@ -42,11 +44,23 @@ const GamePlayer = () => {
   const [won, setWon] = useState(false);
   const [currentRiddle, setCurrentRiddle] = useState("");
   const [hintedItemId, setHintedItemId] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const scoreSubmittedRef = useRef(false);
   const imageRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
     loadScene();
   }, [id, firebaseEnabled, db]);
+
+  useEffect(() => {
+    if (!firebaseEnabled || !auth) {
+      return;
+    }
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     if (gameOver || !scene || totalTime === 0) return;
@@ -71,7 +85,7 @@ const GamePlayer = () => {
       setGameOver(true);
       toast({ title: "Victory!", description: "You found all the treasures!" });
     }
-  }, [foundItems, scene]);
+  }, [foundItems, scene, toast]);
 
   useEffect(() => {
     if (energy <= 0) {
@@ -107,7 +121,127 @@ const GamePlayer = () => {
     setGameOver(false);
     setWon(false);
     setHintedItemId(null);
+    scoreSubmittedRef.current = false; // Reset score submission flag for new game
   };
+
+  const calculateScore = useCallback((itemsFound: number, timeLeft: number, energyLeft: number): number => {
+    // Same calculation as Leaderboard.tsx
+    const baseScore = itemsFound * 100;
+    const timeBonus = timeLeft * 5;
+    const energyBonus = energyLeft * 10;
+    return baseScore + timeBonus + energyBonus;
+  }, []);
+
+  const submitScoreToLeaderboard = useCallback(async () => {
+    // Prevent duplicate submissions
+    if (scoreSubmittedRef.current) {
+      console.log("Score already submitted, skipping duplicate submission");
+      return;
+    }
+
+    // Only submit if Firebase is enabled, user is authenticated, and scene is loaded
+    if (!firebaseEnabled) {
+      console.log("Firebase not enabled, skipping score submission");
+      return;
+    }
+
+    if (!db) {
+      console.log("Firestore database not available, skipping score submission");
+      return;
+    }
+
+    if (!auth) {
+      console.log("Firebase auth not available, skipping score submission");
+      return;
+    }
+
+    if (!user) {
+      console.log("User not authenticated, skipping score submission");
+      console.log("Current auth state:", auth.currentUser ? "authenticated" : "not authenticated");
+      return;
+    }
+
+    if (!scene) {
+      console.log("Scene not loaded, skipping score submission");
+      return;
+    }
+
+    if (!id) {
+      console.log("Scene ID not available, skipping score submission");
+      return;
+    }
+
+    // Set flag to prevent duplicate submissions during the async operation
+    // Only set it after all validation checks pass
+    scoreSubmittedRef.current = true;
+
+    try {
+      const itemsFound = foundItems.size;
+      const totalItems = scene.items.length;
+      const score = calculateScore(itemsFound, timeLeft, energy);
+
+      console.log("Submitting score to leaderboard:", {
+        itemsFound,
+        totalItems,
+        timeLeft,
+        energy,
+        score,
+        sceneId: id,
+        sceneTitle: scene.title,
+      });
+
+      // Get user's display name or fallback to email or "Anonymous"
+      const playerName = user.displayName || user.email?.split("@")[0] || "Anonymous";
+
+      const leaderboardEntry = {
+        playerName,
+        sceneTitle: scene.title,
+        sceneId: id,
+        score,
+        itemsFound,
+        totalItems,
+        timeLeft,
+        energyLeft: energy,
+        completedAt: serverTimestamp(),
+      };
+
+      const docRef = await addDoc(collection(db, "leaderboard"), leaderboardEntry);
+      console.log("Score submitted successfully with document ID:", docRef.id);
+      
+      toast({
+        title: "Score submitted!",
+        description: `Your score of ${score.toLocaleString()} has been added to the leaderboard!`,
+      });
+    } catch (error: any) {
+      console.error("Error submitting score to leaderboard:", error);
+      console.error("Error details:", {
+        code: error.code,
+        message: error.message,
+        stack: error.stack,
+      });
+      // Reset flag on error so user can try again
+      scoreSubmittedRef.current = false;
+      toast({
+        title: "Failed to submit score",
+        description: error.message || "Your score couldn't be added to the leaderboard, but great job completing the challenge!",
+        variant: "destructive",
+      });
+    }
+  }, [firebaseEnabled, db, auth, user, scene, id, foundItems.size, timeLeft, energy, calculateScore, toast]);
+
+  useEffect(() => {
+    // Submit score to leaderboard when game is won
+    console.log("Score submission useEffect triggered:", { won, hasScene: !!scene, alreadySubmitted: scoreSubmittedRef.current, user: user?.email || "not authenticated" });
+    if (won && scene && !scoreSubmittedRef.current) {
+      console.log("Conditions met! Submitting score...");
+      // Don't set flag yet - let the function handle it after successful submission
+      submitScoreToLeaderboard();
+    } else {
+      if (!won) console.log("Score submission skipped: game not won yet");
+      if (!scene) console.log("Score submission skipped: scene not loaded");
+      if (scoreSubmittedRef.current) console.log("Score submission skipped: already submitted");
+    }
+  }, [won, scene, submitScoreToLeaderboard, user]);
 
   const loadScene = async () => {
     // Check if this is a demo scene (when Firebase is disabled or explicit demo ID)
@@ -201,7 +335,11 @@ const GamePlayer = () => {
   };
 
   if (!scene) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background to-ocean-blue/10">
+        <LoadingSpinner message="Loading scene..." size="lg" />
+      </div>
+    );
   }
 
   const progress = (foundItems.size / scene.items.length) * 100;

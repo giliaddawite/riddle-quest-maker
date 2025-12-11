@@ -3,8 +3,10 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { ThemeProvider } from "next-themes";
 import NavBar from "./components/NavBar";
 import Index from "./pages/Index";
+import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import SceneCreator from "./pages/SceneCreator";
 import SceneBrowser from "./pages/SceneBrowser";
@@ -16,27 +18,31 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <NavBar />
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/create" element={<SceneCreator />} />
-          <Route path="/edit/:id" element={<SceneEditor />} />
-          <Route path="/scenes" element={<SceneBrowser />} />
-          <Route path="/play/:id" element={<GamePlayer />} />
-          <Route path="/leaderboard" element={<Leaderboard />} />
-          <Route path="/leaderboard/:sceneId" element={<Leaderboard />} />
+  <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <NavBar />
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/home" element={<Index />} />
+            <Route path="/landing" element={<Landing />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/create" element={<SceneCreator />} />
+            <Route path="/edit/:id" element={<SceneEditor />} />
+            <Route path="/scenes" element={<SceneBrowser />} />
+            <Route path="/play/:id" element={<GamePlayer />} />
+            <Route path="/leaderboard" element={<Leaderboard />} />
+            <Route path="/leaderboard/:sceneId" element={<Leaderboard />} />
           {/* <Route path="/Browser" element={<HomepageNoLogin />} /> */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ThemeProvider>
 );
 
 export default App;

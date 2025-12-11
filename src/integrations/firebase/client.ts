@@ -27,6 +27,13 @@ if (firebaseEnabled) {
   db = getFirestore(app);
   storage = getStorage(app);
   googleProvider = new GoogleAuthProvider();
+  // Add scopes for better compatibility
+  googleProvider.addScope('profile');
+  googleProvider.addScope('email');
+  // Set custom parameters
+  googleProvider.setCustomParameters({
+    prompt: 'select_account'
+  });
 }
 
 export { firebaseEnabled, app, auth, db, storage, googleProvider };

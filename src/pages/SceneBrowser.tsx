@@ -7,6 +7,7 @@ import { Play, Pencil, Trash2, Trophy } from "lucide-react";
 import { collection, deleteDoc, doc, getDocs, orderBy, query } from "firebase/firestore";
 import { DEMO_SCENES } from "@/lib/demoScenes";
 import { useToast } from "@/hooks/use-toast";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 interface Scene {
   id: string;
@@ -81,7 +82,7 @@ const SceneBrowser = () => {
         </div>
 
         {loading ? (
-          <div className="text-center text-muted-foreground">Loading scenes...</div>
+          <LoadingSpinner message="Loading scenes..." />
         ) : scenes.length === 0 ? (
           <Card className="p-12 text-center">
             <p className="text-lg text-muted-foreground mb-4">No scenes created yet</p>

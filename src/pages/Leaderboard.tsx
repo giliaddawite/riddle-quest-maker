@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Trophy, Medal, Award, Clock, ArrowLeft } from "lucide-react";
 import { collection, getDocs, orderBy, query, limit, where, doc, getDoc } from "firebase/firestore";
 import { getDemoSceneById, DEMO_SCENES } from "@/lib/demoScenes";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 interface LeaderboardEntry {
   id: string;
@@ -27,9 +28,29 @@ const Leaderboard = () => {
   const [sceneTitle, setSceneTitle] = useState<string>("");
   const navigate = useNavigate();
 
+  const calculateScore = (entry: LeaderboardEntry) => {
+    // Score calculation: base points + time bonus + energy bonus
+    const baseScore = entry.itemsFound * 100;
+    const timeBonus = entry.timeLeft * 5;
+    const energyBonus = entry.energyLeft * 10;
+    return baseScore + timeBonus + energyBonus;
+  };
+
   useEffect(() => {
     loadLeaderboard();
-  }, [sceneId]);
+  }, []);
+
+  // Reload leaderboard when component becomes visible (user navigates to this page)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log("Page became visible, reloading leaderboard...");
+        loadLeaderboard();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, []);
 
   const loadLeaderboard = async () => {
     if (!firebaseEnabled || !db) {
@@ -104,7 +125,12 @@ const Leaderboard = () => {
     }
 
     try {
-      let leaderboardQuery;
+      console.log("Loading leaderboard from Firestore...");
+      let snapshot;
+      
+      try {
+        // Try to query with orderBy first (requires index)
+        let leaderboardQuery;
       if (sceneId) {
         // Filter by scene
         leaderboardQuery = query(
@@ -123,31 +149,58 @@ const Leaderboard = () => {
       } else {
         // All scenes
         leaderboardQuery = query(
-          collection(db, "leaderboard"),
-          orderBy("score", "desc"),
-          limit(50)
-        );
+            collection(db, "leaderboard"),
+            orderBy("score", "desc"),
+            limit(50)
+          );
       }
       
-      const snapshot = await getDocs(leaderboardQuery);
-      const leaderboardData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as LeaderboardEntry[];
+        snapshot = await getDocs(leaderboardQuery);
+      } catch (indexError: any) {
+        // If index is missing, fall back to getting all docs and sorting in memory
+        if (indexError.code === "failed-precondition") {
+          console.warn("Firestore index missing. Fetching all entries and sorting in memory...");
+          console.warn("To fix: Create a composite index for 'leaderboard' collection with 'score' field (descending)");
+          const allDocs = await getDocs(collection(db, "leaderboard"));
+          snapshot = allDocs;
+        } else {
+          throw indexError;
+        }
+      }
+      
+      console.log(`Found ${snapshot.docs.length} leaderboard entries`);
+      let leaderboardData = snapshot.docs.map(doc => {
+        const data = doc.data();
+        console.log("Leaderboard entry:", { id: doc.id, ...data });
+        return {
+          id: doc.id,
+          ...data,
+        };
+      }) as LeaderboardEntry[];
+      
+      // Sort by score descending if we didn't use orderBy
+      leaderboardData = leaderboardData.sort((a, b) => {
+        const scoreA = a.score || calculateScore(a);
+        const scoreB = b.score || calculateScore(b);
+        return scoreB - scoreA;
+      });
+      
+      // Limit to top 50
+      leaderboardData = leaderboardData.slice(0, 50);
+      
       setEntries(leaderboardData || []);
-    } catch (error) {
+      console.log("Leaderboard loaded successfully:", leaderboardData.length, "entries");
+    } catch (error: any) {
       console.error("Error loading leaderboard:", error);
+      console.error("Error details:", {
+        code: error.code,
+        message: error.message,
+        stack: error.stack,
+      });
+      setEntries([]);
     } finally {
       setLoading(false);
     }
-  };
-
-  const calculateScore = (entry: LeaderboardEntry) => {
-    // Score calculation: base points + time bonus + energy bonus
-    const baseScore = entry.itemsFound * 100;
-    const timeBonus = entry.timeLeft * 5;
-    const energyBonus = entry.energyLeft * 10;
-    return baseScore + timeBonus + energyBonus;
   };
 
   const formatDate = (date: any) => {
@@ -200,7 +253,7 @@ const Leaderboard = () => {
         </div>
 
         {loading ? (
-          <div className="text-center text-muted-foreground">Loading leaderboard...</div>
+          <LoadingSpinner message="Loading leaderboard..." />
         ) : entries.length === 0 ? (
           <Card className="p-12 text-center">
             <Trophy className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />

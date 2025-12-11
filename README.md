@@ -2,7 +2,7 @@
 
 Treasure-hunt builder and game client built with React + Vite. Auth, data, and assets are handled entirely through Firebase (Auth, Firestore, Storage). Users can sign in, create hidden-object scenes with riddles, browse community scenes, and play interactive treasure hunts.
 
-**URL**: https://lovable.dev/projects/b550012a-b5dd-44d2-a47c-77cbd62480e8
+**URL**: https://treasure-seeker-a771e.web.app/
 
 - Firebase email/password & Google OAuth authentication
 - Scene creator with image uploads to Firebase Storage

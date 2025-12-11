@@ -4,6 +4,7 @@ import { auth, firebaseEnabled } from "@/integrations/firebase/client";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { Button } from "@/components/ui/button";
 import { Map, Plus } from "lucide-react";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
 
 const Index = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -19,7 +20,7 @@ const Index = () => {
       setUser(firebaseUser);
       setLoadingUser(false);
       if (!firebaseUser) {
-        navigate("/auth");
+        navigate("/landing");
       }
     });
 
@@ -48,7 +49,11 @@ const Index = () => {
   }
 
   if (loadingUser) {
-    return null;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-amber-glow/5 to-ocean-blue/10">
+        <LoadingSpinner message="Checking authentication..." />
+      </div>
+    );
   }
 
   if (!user) {

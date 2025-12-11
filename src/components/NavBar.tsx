@@ -4,6 +4,7 @@ import { auth, firebaseEnabled } from "@/integrations/firebase/client";
 import { onAuthStateChanged, signOut, type User } from "firebase/auth";
 import { Button } from "@/components/ui/button";
 import { Compass, LogOut, Home, Map, Plus, Trophy } from "lucide-react";
+import { ThemeToggle } from "./ThemeToggle";
 
 const NavBar = () => {
   const navigate = useNavigate();
@@ -35,8 +36,8 @@ const NavBar = () => {
 
   const isActive = (path: string) => location.pathname === path;
 
-  // Don't show nav bar on auth page
-  if (location.pathname === "/auth") {
+  // Don't show nav bar on auth page or landing page (including root path)
+  if (location.pathname === "/auth" || location.pathname === "/landing" || location.pathname === "/") {
     return null;
   }
 
@@ -60,10 +61,10 @@ const NavBar = () => {
           {/* Navigation Links */}
           <div className="hidden md:flex items-center gap-2">
             <Button
-              variant={isActive("/") ? "default" : "ghost"}
+              variant={isActive("/home") ? "default" : "ghost"}
               size="sm"
-              onClick={() => navigate("/")}
-              className={isActive("/") ? "bg-primary/10" : ""}
+              onClick={() => navigate("/home")}
+              className={isActive("/home") ? "bg-primary/10" : ""}
             >
               <Home className="w-4 h-4 mr-2" />
               Home
@@ -99,6 +100,7 @@ const NavBar = () => {
 
           {/* Auth Section */}
           <div className="flex items-center gap-2">
+            <ThemeToggle />
             {!loading && (
               <>
                 {firebaseEnabled && auth ? (
@@ -126,10 +128,10 @@ const NavBar = () => {
         {/* Mobile Navigation */}
         <div className="md:hidden pb-4 flex items-center gap-2 overflow-x-auto">
           <Button
-            variant={isActive("/") ? "default" : "ghost"}
+            variant={isActive("/home") ? "default" : "ghost"}
             size="sm"
-            onClick={() => navigate("/")}
-            className={isActive("/") ? "bg-primary/10" : ""}
+            onClick={() => navigate("/home")}
+            className={isActive("/home") ? "bg-primary/10" : ""}
           >
             <Home className="w-4 h-4 mr-2" />
             Home
