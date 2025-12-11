@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { auth, db, firebaseEnabled } from "@/integrations/firebase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Play, Pencil, Trash2 } from "lucide-react";
+import { Play, Pencil, Trash2, Trophy } from "lucide-react";
 import { collection, deleteDoc, doc, getDocs, orderBy, query } from "firebase/firestore";
 import { DEMO_SCENES } from "@/lib/demoScenes";
 import { useToast } from "@/hooks/use-toast";
@@ -109,13 +109,21 @@ const SceneBrowser = () => {
                     {scene.items?.length || 0} hidden treasures to find
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-2">
                   <Button
                     onClick={() => navigate(`/play/${scene.id}`)}
                     className="w-full bg-gradient-to-r from-secondary to-ocean-blue hover:opacity-90"
                   >
                     <Play className="w-4 h-4 mr-2" />
                     Start Hunt
+                  </Button>
+                  <Button
+                    onClick={() => navigate(`/leaderboard/${scene.id}`)}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    <Trophy className="w-4 h-4 mr-2" />
+                    View Leaderboard
                   </Button>
                   {firebaseEnabled && auth?.currentUser?.uid === scene.creator_id && (
                     <div className="flex gap-2 mt-2">

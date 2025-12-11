@@ -30,6 +30,7 @@ const App = () => (
           <Route path="/scenes" element={<SceneBrowser />} />
           <Route path="/play/:id" element={<GamePlayer />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/leaderboard/:sceneId" element={<Leaderboard />} />
           {/* <Route path="/Browser" element={<HomepageNoLogin />} /> */}
           <Route path="*" element={<NotFound />} />
         </Routes>

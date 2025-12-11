@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { db, firebaseEnabled } from "@/integrations/firebase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trophy, Medal, Award, Clock } from "lucide-react";
-import { collection, getDocs, orderBy, query, limit } from "firebase/firestore";
+import { Trophy, Medal, Award, Clock, ArrowLeft } from "lucide-react";
+import { collection, getDocs, orderBy, query, limit, where, doc, getDoc } from "firebase/firestore";
+import { getDemoSceneById, DEMO_SCENES } from "@/lib/demoScenes";
 
 interface LeaderboardEntry {
   id: string;
@@ -20,65 +21,114 @@ interface LeaderboardEntry {
 }
 
 const Leaderboard = () => {
+  const { sceneId } = useParams<{ sceneId?: string }>();
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sceneTitle, setSceneTitle] = useState<string>("");
   const navigate = useNavigate();
 
   useEffect(() => {
     loadLeaderboard();
-  }, []);
+  }, [sceneId]);
 
   const loadLeaderboard = async () => {
     if (!firebaseEnabled || !db) {
-      // Demo leaderboard data
-      setEntries([
-        {
-          id: "demo-1",
-          playerName: "Treasure Master",
-          sceneTitle: "The Ancient Temple",
-          sceneId: "scene-1",
-          score: 950,
-          itemsFound: 3,
-          totalItems: 3,
-          timeLeft: 45,
-          energyLeft: 15,
-          completedAt: new Date().toISOString(),
-        },
-        {
-          id: "demo-2",
-          playerName: "Explorer Elite",
-          sceneTitle: "The Lost Shipwreck",
-          sceneId: "scene-2",
-          score: 880,
-          itemsFound: 3,
-          totalItems: 3,
-          timeLeft: 30,
-          energyLeft: 12,
-          completedAt: new Date(Date.now() - 3600000).toISOString(),
-        },
-        {
-          id: "demo-3",
-          playerName: "Riddle Solver",
-          sceneTitle: "The Enchanted Forest",
-          sceneId: "scene-3",
-          score: 820,
-          itemsFound: 3,
-          totalItems: 3,
-          timeLeft: 20,
-          energyLeft: 10,
-          completedAt: new Date(Date.now() - 7200000).toISOString(),
-        },
-      ]);
+      // Demo leaderboard data - filter by scene if provided
+      let demoData: LeaderboardEntry[] = [];
+      
+      if (sceneId) {
+        const demoScene = getDemoSceneById(sceneId);
+        if (demoScene) {
+          setSceneTitle(demoScene.title);
+          // Generate demo scores for this specific scene
+          demoData = [
+            {
+              id: `demo-${sceneId}-1`,
+              playerName: "Treasure Master",
+              sceneTitle: demoScene.title,
+              sceneId: sceneId,
+              score: 950,
+              itemsFound: demoScene.items.length,
+              totalItems: demoScene.items.length,
+              timeLeft: 45,
+              energyLeft: 15,
+              completedAt: new Date().toISOString(),
+            },
+            {
+              id: `demo-${sceneId}-2`,
+              playerName: "Explorer Elite",
+              sceneTitle: demoScene.title,
+              sceneId: sceneId,
+              score: 880,
+              itemsFound: demoScene.items.length,
+              totalItems: demoScene.items.length,
+              timeLeft: 30,
+              energyLeft: 12,
+              completedAt: new Date(Date.now() - 3600000).toISOString(),
+            },
+            {
+              id: `demo-${sceneId}-3`,
+              playerName: "Riddle Solver",
+              sceneTitle: demoScene.title,
+              sceneId: sceneId,
+              score: 820,
+              itemsFound: demoScene.items.length,
+              totalItems: demoScene.items.length,
+              timeLeft: 20,
+              energyLeft: 10,
+              completedAt: new Date(Date.now() - 7200000).toISOString(),
+            },
+          ];
+        }
+      } else {
+        // All scenes leaderboard
+        DEMO_SCENES.forEach((scene, idx) => {
+          demoData.push({
+            id: `demo-all-${idx}-1`,
+            playerName: `Top Player ${idx + 1}`,
+            sceneTitle: scene.title,
+            sceneId: scene.id,
+            score: 950 - (idx * 30),
+            itemsFound: scene.items.length,
+            totalItems: scene.items.length,
+            timeLeft: 45 - (idx * 5),
+            energyLeft: 15 - (idx * 2),
+            completedAt: new Date(Date.now() - idx * 3600000).toISOString(),
+          });
+        });
+      }
+      
+      setEntries(demoData);
       setLoading(false);
       return;
     }
 
     try {
-      const leaderboardQuery = query(
-        collection(db, "leaderboard"),
-        orderBy("score", "desc"),
-        limit(50)
-      );
+      let leaderboardQuery;
+      if (sceneId) {
+        // Filter by scene
+        leaderboardQuery = query(
+          collection(db, "leaderboard"),
+          where("sceneId", "==", sceneId),
+          orderBy("score", "desc"),
+          limit(50)
+        );
+        
+        // Get scene title
+        const sceneRef = doc(db, "scenes", sceneId);
+        const sceneSnap = await getDoc(sceneRef);
+        if (sceneSnap.exists()) {
+          setSceneTitle(sceneSnap.data().title);
+        }
+      } else {
+        // All scenes
+        leaderboardQuery = query(
+          collection(db, "leaderboard"),
+          orderBy("score", "desc"),
+          limit(50)
+        );
+      }
+      
       const snapshot = await getDocs(leaderboardQuery);
       const leaderboardData = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -127,11 +177,26 @@ const Leaderboard = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-amber-glow/5 to-ocean-blue/10 p-6">
       <div className="max-w-6xl mx-auto space-y-8">
-        <div className="text-center space-y-2">
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-treasure-gold to-amber-glow bg-clip-text text-transparent">
-            Leaderboard
-          </h1>
-          <p className="text-xl text-muted-foreground">Top Treasure Hunters</p>
+        <div className="space-y-2">
+          {sceneId && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/leaderboard")}
+              className="mb-4"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              All Scenes Leaderboard
+            </Button>
+          )}
+          <div className="text-center space-y-2">
+            <h1 className="text-5xl font-bold bg-gradient-to-r from-treasure-gold to-amber-glow bg-clip-text text-transparent">
+              Leaderboard
+            </h1>
+            <p className="text-xl text-muted-foreground">
+              {sceneId && sceneTitle ? `${sceneTitle} - Top Players` : "Top Treasure Hunters"}
+            </p>
+          </div>
         </div>
 
         {loading ? (
@@ -169,7 +234,7 @@ const Leaderboard = () => {
                           </span>
                         </div>
                         <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                          <span className="font-medium">{entry.sceneTitle}</span>
+                          {!sceneId && <span className="font-medium">{entry.sceneTitle}</span>}
                           <span className="flex items-center gap-1">
                             <Trophy className="w-4 h-4" />
                             {entry.itemsFound}/{entry.totalItems} items
@@ -185,14 +250,24 @@ const Leaderboard = () => {
                         <p className="text-xs text-muted-foreground">
                           {formatDate(entry.completedAt)}
                         </p>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => navigate(`/play/${entry.sceneId}`)}
-                          className="mt-2"
-                        >
-                          Play Scene
-                        </Button>
+                        <div className="flex flex-col gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => navigate(`/play/${entry.sceneId}`)}
+                          >
+                            Play Scene
+                          </Button>
+                          {!sceneId && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => navigate(`/leaderboard/${entry.sceneId}`)}
+                            >
+                              View Scene LB
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </CardContent>
