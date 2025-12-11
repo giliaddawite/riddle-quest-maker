@@ -34,6 +34,7 @@ const SceneCreator = () => {
   const imageRef = useRef<HTMLImageElement>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [isResizing, setIsResizing] = useState<string | null>(null); // e.g., 'bottom-right', 'top-left', null
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -42,17 +43,126 @@ const SceneCreator = () => {
       setBackgroundUrl(URL.createObjectURL(file));
     }
   };
-  const handleImageClick = (e: React.MouseEvent<HTMLImageElement>) => {
-    if (!isPlacing || !imageRef.current) return;
+  // UPDATE handleImageClick
+const handleImageClick = (e: React.MouseEvent<HTMLImageElement>) => {
+  // Only allow placement if we are currently in placing mode AND not resizing.
+  if (!isPlacing || isResizing || !imageRef.current) return; 
 
-    const rect = imageRef.current.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 100;
-    const y = ((e.clientY - rect.top) / rect.height) * 100;
+  const rect = imageRef.current.getBoundingClientRect();
+  const x = ((e.clientX - rect.left) / rect.width) * 100;
+  const y = ((e.clientY - rect.top) / rect.height) * 100;
 
-    setCurrentItem({ ...currentItem, x, y, width: 5, height: 5 });
-    setIsPlacing(false);
-  };
+  // Set initial small box that the user can resize
+  setCurrentItem({ 
+    ...currentItem, 
+    x, 
+    y, 
+    width: DEFAULT_ITEM_SIZE, 
+    height: DEFAULT_ITEM_SIZE 
+  });
+  // DO NOT set setIsPlacing(false) here. Keep it true until the user is done with the item details.
+  // setIsPlacing(false); // <--- REMOVE THIS LINE
+  toast({ title: "Area placed!", description: "Now adjust the size using the handles." });
+};
+  const getRelativeCoordinates = (e: MouseEvent) => { // Use MouseEvent here as this is for global listeners
+  if (!imageRef.current) return null;
+  const rect = imageRef.current.getBoundingClientRect();
+  
+  // Calculate raw percentage coordinates
+  const x = ((e.clientX - rect.left) / rect.width) * 100;
+  const y = ((e.clientY - rect.top) / rect.height) * 100;
+  
+  // CRITICAL: Clamp coordinates between 0 and 100
+  const clampedX = Math.max(0, Math.min(x, 100));
+  const clampedY = Math.max(0, Math.min(y, 100));
 
+  return { x: clampedX, y: clampedY };
+};
+
+// --- MOUSE DOWN on a HANDLE (Starts the Resize) ---
+const handleHandleMouseDown = (e: React.MouseEvent, handle: string) => {
+  // Prevent the event from bubbling up to the image (which would trigger handleImageClick)
+  e.stopPropagation(); 
+  
+  // Prevent text selection during drag
+  e.preventDefault(); 
+
+  // We only care about the item currently being worked on
+  if (currentItem.x === undefined) return;
+
+  setIsResizing(handle);
+  
+  // Attach global listeners for move/up
+  document.addEventListener('mousemove', handleGlobalResizeMove);
+  document.addEventListener('mouseup', handleGlobalResizeUp);
+};
+
+// --- GLOBAL MOUSE MOVE (The core resizing logic) ---
+const handleGlobalResizeMove = (e: MouseEvent) => {
+  if (!isResizing || currentItem.x === undefined || currentItem.y === undefined) return;
+
+  const currentCoords = getRelativeCoordinates(e);
+  if (!currentCoords) return;
+
+  let newX = currentItem.x;
+  let newY = currentItem.y;
+  let newWidth = currentItem.width || DEFAULT_ITEM_SIZE;
+  let newHeight = currentItem.height || DEFAULT_ITEM_SIZE;
+  
+  // The right edge position: X + Width
+  const rightEdge = currentItem.x + newWidth;
+  // The bottom edge position: Y + Height
+  const bottomEdge = currentItem.y + newHeight;
+
+  switch (isResizing) {
+    case 'tl': // Top-Left handle
+      // Recalculate Width: New width is (Right Edge - Mouse X)
+      newWidth = rightEdge - currentCoords.x;
+      // Recalculate Height: New height is (Bottom Edge - Mouse Y)
+      newHeight = bottomEdge - currentCoords.y;
+
+      // Update X and Y origin only if the box doesn't flip/collapse
+      if (newWidth > 0 && newHeight > 0) {
+        newX = currentCoords.x;
+        newY = currentCoords.y;
+      }
+      break;
+
+    case 'br': // Bottom-Right handle
+      // New width is (Mouse X - Origin X)
+      newWidth = currentCoords.x - currentItem.x;
+      // New height is (Mouse Y - Origin Y)
+      newHeight = currentCoords.y - currentItem.y;
+      break;
+
+    // Add cases for 'tr' and 'bl' if you implement more handles
+  }
+  
+  // Ensure dimensions are never negative (box can't be inverted)
+  newWidth = Math.max(0.5, newWidth); 
+  newHeight = Math.max(0.5, newHeight);
+
+  setCurrentItem(prev => ({
+    ...prev,
+    x: newX,
+    y: newY,
+    width: newWidth,
+    height: newHeight,
+  }));
+};
+
+// --- GLOBAL MOUSE UP (Stops the Resize) ---
+const handleGlobalResizeUp = () => {
+  if (!isResizing) return;
+
+  setIsResizing(null);
+  // Optional: Check for minimum size here and reset if too small.
+  
+  // Cleanup global listeners
+  document.removeEventListener('mousemove', handleGlobalResizeMove);
+  document.removeEventListener('mouseup', handleGlobalResizeUp);
+  toast({ title: "Item area adjusted." });
+};
   const addItem = () => {
     if (!currentItem.name || !currentItem.riddle || currentItem.x === undefined) {
       toast({ title: "Please complete all item details", variant: "destructive" });
@@ -186,16 +296,33 @@ const SceneCreator = () => {
                   />
                 ))}
                 {currentItem.x !== undefined && (
-                  <div
-                    className="absolute border-2 border-accent bg-accent/20 rounded animate-pulse"
-                    style={{
-                      left: `${currentItem.x}%`,
-                      top: `${currentItem.y}%`,
-                      width: `${currentItem.width || DEFAULT_ITEM_SIZE}%`,
-                      height: `${currentItem.height || DEFAULT_ITEM_SIZE}%`,
-                    }}
-                  />
-                )}
+    <div
+      className={`absolute border-2 border-accent bg-accent/20 rounded ${isResizing ? '' : 'animate-pulse'}`}
+      style={{
+        left: `${currentItem.x}%`,
+        top: `${currentItem.y}%`,
+        width: `${currentItem.width || DEFAULT_ITEM_SIZE}%`,
+        height: `${currentItem.height || DEFAULT_ITEM_SIZE}%`,
+      }}
+    >
+      {/* Resizable Handles (Display only if placing is done OR if we are resizing) */}
+      {(currentItem.width > 0.5) && (
+        <>
+          {/* Top-Left Handle */}
+          <div 
+            className="absolute w-3 h-3 bg-white border border-accent rounded-full -left-1.5 -top-1.5 cursor-nwse-resize"
+            onMouseDown={(e) => handleHandleMouseDown(e, 'tl')}
+          />
+          {/* Bottom-Right Handle */}
+          <div 
+            className="absolute w-3 h-3 bg-white border border-accent rounded-full -right-1.5 -bottom-1.5 cursor-nwse-resize"
+            onMouseDown={(e) => handleHandleMouseDown(e, 'br')}
+          />
+          {/* ... Add other handles (tr, bl) as needed ... */}
+        </>
+      )}
+    </div>
+)}
               </div>
             )}
           </Card>
