@@ -1,0 +1,44 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Scenes collection
+    match /scenes/{sceneId} {
+      // Allow anyone to read scenes
+      allow read: if true;
+      
+      // Allow authenticated users to create scenes
+      // Must set creator_id to their own uid
+      allow create: if request.auth != null 
+        && request.resource.data.creator_id == request.auth.uid
+        && request.resource.data.keys().hasAll(['title', 'background_url', 'items', 'created_at']);
+      
+      // Allow only the creator to update their scenes
+      allow update: if request.auth != null 
+        && resource.data.creator_id == request.auth.uid
+        && request.resource.data.creator_id == request.auth.uid;
+      
+      // Allow only the creator to delete their scenes
+      allow delete: if request.auth != null 
+        && resource.data.creator_id == request.auth.uid;
+    }
+    
+    // Leaderboard collection
+    match /leaderboard/{entryId} {
+      // Allow anyone to read leaderboard entries
+      allow read: if true;
+      
+      // Allow authenticated users to create leaderboard entries
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasAll(['playerName', 'sceneTitle', 'sceneId', 'score', 'itemsFound', 'totalItems', 'completedAt']);
+      
+      // Don't allow updates or deletes (leaderboard is append-only)
+      allow update, delete: if false;
+    }
+    
+    // Default: deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
